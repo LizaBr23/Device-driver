@@ -15,6 +15,8 @@ ifeq ($(KERNELRELEASE),)
     # The current directory is passed to sub-makes as argument
     PWD := $(shell pwd)
 
+all: modules
+
 modules:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
 
@@ -28,5 +30,5 @@ clean:
 
 else
     # called from kernel build system: just declare what our modules are
-    obj-m := hello.o
+    obj-m := tablet_driver.o
 endif
