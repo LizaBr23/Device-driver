@@ -2,6 +2,9 @@
 .idea
 compile_commands.json
 
+#VSCode
+.vscode
+
 # Object files
 *.o
 .module-common.o
