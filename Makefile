@@ -28,5 +28,6 @@ clean:
 
 else
     # called from kernel build system: just declare what our modules are
-    obj-m := hello.o
+	driver_mod-objs := usb_driver.o data_parsing.o
+    obj-m := driver_mod.o
 endif

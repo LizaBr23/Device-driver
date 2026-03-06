@@ -1,3 +1,7 @@
+Tablet is little endian
+
+Tablet has three USB interfaces
+
 Button input packets start with a 06 byte (as apposed to 07 for Pen input).
 The 2nd and 3rd bytes are the button codes.
 
