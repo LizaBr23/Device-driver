@@ -7,6 +7,7 @@
 #include <linux/wait.h>        
 #include <linux/uaccess.h>
 #include <linux/ioctl.h>
+#include <linux/input.h>
 #include "tablet.h"
 #include "cdev_controller.h"
 
@@ -150,6 +151,8 @@ static ssize_t tablet_write(struct file *file, const char __user *user_buf, size
 }
 
 int tablet_buffer_write(struct tablet_event *event) {
+    struct button_binding b;
+
     if (buf_count >= BUFFER_SIZE) {
         printk(KERN_WARNING "tablet: buffer full, dropping event\n");
         return -1;
@@ -162,6 +165,14 @@ int tablet_buffer_write(struct tablet_event *event) {
     mutex_unlock(&tablet_mutex);
 
     wake_up_interruptible(&read_queue);
+
+    // if a button was pressed, look up its binding and fire it
+    if (event->button >= 1 && event->button <= 10) {
+        mutex_lock(&bindings_mutex);
+        b = button_bindings[event->button];
+        mutex_unlock(&bindings_mutex);
+        fire_binding(&b);
+    }
 
     return 0;
 }
@@ -184,10 +195,46 @@ int tablet_buffer_read(struct tablet_event *event) {
 }
 EXPORT_SYMBOL(tablet_buffer_read);
 
+// Virtual keyboard input device - used to inject keypresses into the OS
+static struct input_dev *tablet_input_dev;
+
 // Button binding table - buttons are numbered 1-10, slot 0 unused
 #define MAX_BUTTONS 11
 static struct button_binding button_bindings[MAX_BUTTONS];
 static DEFINE_MUTEX(bindings_mutex);
+
+// Fires the key combination stored in a binding (e.g. Ctrl+Z)
+// Press modifiers → press key → release key → release modifiers
+static void fire_binding(struct button_binding *b) {
+    if (!tablet_input_dev || b->keycode == 0)
+        return;
+
+    // press modifiers
+    if (b->modifiers & MOD_CTRL)
+        input_report_key(tablet_input_dev, KEY_LEFTCTRL, 1);
+    if (b->modifiers & MOD_ALT)
+        input_report_key(tablet_input_dev, KEY_LEFTALT, 1);
+    if (b->modifiers & MOD_SHIFT)
+        input_report_key(tablet_input_dev, KEY_LEFTSHIFT, 1);
+
+    // press and release the main key
+    input_report_key(tablet_input_dev, b->keycode, 1);
+    input_sync(tablet_input_dev);
+    input_report_key(tablet_input_dev, b->keycode, 0);
+    input_sync(tablet_input_dev);
+
+    // release modifiers
+    if (b->modifiers & MOD_CTRL)
+        input_report_key(tablet_input_dev, KEY_LEFTCTRL, 0);
+    if (b->modifiers & MOD_ALT)
+        input_report_key(tablet_input_dev, KEY_LEFTALT, 0);
+    if (b->modifiers & MOD_SHIFT)
+        input_report_key(tablet_input_dev, KEY_LEFTSHIFT, 0);
+
+    input_sync(tablet_input_dev);
+    printk(KERN_INFO "tablet: fired keycode %d modifiers %d\n",
+           b->keycode, b->modifiers);
+}
 
 static long tablet_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     struct button_binding binding;
@@ -231,6 +278,31 @@ static long tablet_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 }
 
 int tablet_init(void) {
+    int i;
+
+    // Create virtual keyboard so we can inject keypresses into the OS
+    tablet_input_dev = input_allocate_device();
+    if (!tablet_input_dev) {
+        printk(KERN_ERR "tablet: failed to allocate input device\n");
+        return -ENOMEM;
+    }
+    tablet_input_dev->name = "Tablet Button Virtual Keyboard";
+    tablet_input_dev->id.bustype = BUS_VIRTUAL;
+
+    // declare that this device sends key events
+    set_bit(EV_KEY, tablet_input_dev->evbit);
+
+    // declare support for all keys so any binding will work
+    for (i = 0; i < KEY_MAX; i++)
+        set_bit(i, tablet_input_dev->keybit);
+
+    if (input_register_device(tablet_input_dev)) {
+        printk(KERN_ERR "tablet: failed to register input device\n");
+        input_free_device(tablet_input_dev);
+        tablet_input_dev = NULL;
+        return -ENODEV;
+    }
+    printk(KERN_ALERT "tablet: virtual keyboard registered\n");
 
     // Registers driver with kernel as character device
     major_number = register_chrdev(0, DEVICE_NAME, &fops);
@@ -266,6 +338,8 @@ void tablet_exit(void) {
     device_destroy(tablet_class, MKDEV(major_number, 0));
     class_destroy(tablet_class);
     unregister_chrdev(major_number, DEVICE_NAME);
+    if (tablet_input_dev)
+        input_unregister_device(tablet_input_dev);
     printk(KERN_ALERT "tablet: /dev/tablet removed\n");
 }
 
