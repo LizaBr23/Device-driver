@@ -6,6 +6,7 @@
 #include <linux/mutex.h>
 #include <linux/wait.h>        
 #include <linux/uaccess.h>
+#include <linux/ioctl.h>
 #include "tablet.h"
 #include "cdev_controller.h"
 
@@ -42,13 +43,15 @@ static int tablet_open(struct inode *inode, struct file *file);
 static int tablet_release(struct inode *inode, struct file *file);
 static ssize_t tablet_read(struct file *file, char __user *user_buf, size_t count, loff_t *offset);
 static ssize_t tablet_write(struct file *file, const char __user *user_buf, size_t count, loff_t *offset);
+static long tablet_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 
 static struct file_operations fops = {
-    .owner = THIS_MODULE,
-    .open = tablet_open, 
-    .release = tablet_release,
-    .read = tablet_read,
-    .write = tablet_write,
+    .owner          = THIS_MODULE,
+    .open           = tablet_open,
+    .release        = tablet_release,
+    .read           = tablet_read,
+    .write          = tablet_write,
+    .unlocked_ioctl = tablet_ioctl,
 };
 
 static int tablet_open(struct inode *inode, struct file *file) {
@@ -180,6 +183,52 @@ int tablet_buffer_read(struct tablet_event *event) {
     return 0;
 }
 EXPORT_SYMBOL(tablet_buffer_read);
+
+// Button binding table - buttons are numbered 1-10, slot 0 unused
+#define MAX_BUTTONS 11
+static struct button_binding button_bindings[MAX_BUTTONS];
+static DEFINE_MUTEX(bindings_mutex);
+
+static long tablet_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
+    struct button_binding binding;
+
+    switch (cmd) {
+
+    case TABLET_SET_BINDING:
+        if (copy_from_user(&binding, (void __user *)arg, sizeof(binding)))
+            return -EFAULT;
+        if (binding.button_id < 1 || binding.button_id > 10)
+            return -EINVAL;
+        mutex_lock(&bindings_mutex);
+        button_bindings[binding.button_id] = binding;
+        mutex_unlock(&bindings_mutex);
+        printk(KERN_INFO "tablet: button %d bound to keycode %d modifiers %d\n",
+               binding.button_id, binding.keycode, binding.modifiers);
+        return 0;
+
+    case TABLET_GET_BINDING:
+        if (copy_from_user(&binding, (void __user *)arg, sizeof(binding)))
+            return -EFAULT;
+        if (binding.button_id < 1 || binding.button_id > 10)
+            return -EINVAL;
+        mutex_lock(&bindings_mutex);
+        binding = button_bindings[binding.button_id];
+        mutex_unlock(&bindings_mutex);
+        if (copy_to_user((void __user *)arg, &binding, sizeof(binding)))
+            return -EFAULT;
+        return 0;
+
+    case TABLET_CLR_BINDINGS:
+        mutex_lock(&bindings_mutex);
+        memset(button_bindings, 0, sizeof(button_bindings));
+        mutex_unlock(&bindings_mutex);
+        printk(KERN_INFO "tablet: all bindings cleared\n");
+        return 0;
+
+    default:
+        return -ENOTTY;
+    }
+}
 
 int tablet_init(void) {
 
