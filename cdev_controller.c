@@ -359,6 +359,19 @@ int tablet_init(void) {
     }
     printk(KERN_ALERT "tablet: /dev/tablet created\n");
 
+    // default button bindings - can be overridden at runtime via ioctl
+    button_bindings[1]  = (struct button_binding){ 1,  KEY_Z,         MOD_CTRL  };  // Ctrl+Z
+    button_bindings[2]  = (struct button_binding){ 2,  KEY_C,         MOD_CTRL  };  // Ctrl+C
+    button_bindings[3]  = (struct button_binding){ 3,  KEY_V,         MOD_CTRL  };  // Ctrl+V
+    button_bindings[4]  = (struct button_binding){ 4,  KEY_S,         MOD_CTRL  };  // Ctrl+S
+    button_bindings[5]  = (struct button_binding){ 5,  KEY_Y,         MOD_CTRL  };  // Ctrl+Y
+    button_bindings[6]  = (struct button_binding){ 6,  KEY_MINUS,     MOD_CTRL  };  // Ctrl+-
+    button_bindings[7]  = (struct button_binding){ 7,  KEY_EQUAL,     MOD_CTRL  };  // Ctrl+=  (zoom in)
+    button_bindings[8]  = (struct button_binding){ 8,  KEY_CAPSLOCK,  0         };  // Caps Lock
+    button_bindings[9]  = (struct button_binding){ 9,  KEY_VOLUMEUP,  0         };  // Volume Up
+    button_bindings[10] = (struct button_binding){ 10, KEY_VOLUMEDOWN,0         };  // Volume Down
+    printk(KERN_ALERT "tablet: default bindings loaded\n");
+
     // create /proc/tablet_stats
     proc_create("tablet_stats", 0, NULL, &tablet_proc_ops);
     printk(KERN_ALERT "tablet: /proc/tablet_stats created\n");
