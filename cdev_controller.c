@@ -13,7 +13,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Team 12");
 MODULE_DESCRIPTION("Drawing Tablet Driver");
 
-#define DEVICE_NAME "tablet"
+#define DEVICE_NAME "Tablet Character Device"
 #define CLASS_NAME "tablet_class"
 #define BUFFER_SIZE 4096
 
