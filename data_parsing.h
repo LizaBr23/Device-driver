@@ -10,6 +10,13 @@ struct button_array {
     char buttons[7];
 };
 
-void get_buttons_pressed(unsigned char* data, u32 length, struct button_array* location);
+struct point {
+    unsigned short x;
+    unsigned short y;
+};
+
+void get_buttons_pressed(unsigned char* data, unsigned int length, struct button_array* location);
+
+struct point get_pen_coordinates(unsigned char* data, unsigned int length);
 
 #endif //DEVICEDRIVERPROJECT_DATA_PARSING_H
