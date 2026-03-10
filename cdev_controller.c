@@ -20,7 +20,6 @@ MODULE_DESCRIPTION("Drawing Tablet Driver");
 static int major_number;
 static struct class *tablet_class;
 static struct device *tablet_device;
-static struct cdev tablet_cdev;
 
 // tracks how many processes have the device open
 static int open_count = 0;
@@ -54,14 +53,6 @@ static struct file_operations fops = {
 static int cdev_open(struct inode *inode, struct file *file) {
     open_count++;
 
-    if (open_count == 1) {
-        mutex_lock(&tablet_mutex);
-        buf_head = 0;
-        buf_tail = 0;
-        buf_count = 0;
-        mutex_unlock(&tablet_mutex);
-        printk(KERN_INFO "tablet: buffer initialised\n");
-    }
     printk(KERN_INFO "tablet: device opened (open count: %d)\n", open_count);
     return 0;
 
@@ -182,6 +173,12 @@ int cdev_buffer_read(struct tablet_event *event) {
 EXPORT_SYMBOL(cdev_buffer_read);
 
 int tablet_init(void) {
+
+    // Initialise buffer
+        buf_head = 0;
+        buf_tail = 0;
+        buf_count = 0;
+        printk(KERN_INFO "tablet: buffer initialised\n");
 
     // Registers driver with kernel as character device
     major_number = register_chrdev(0, DEVICE_NAME, &fops);
