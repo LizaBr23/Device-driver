@@ -37,11 +37,6 @@ static DEFINE_MUTEX(tablet_mutex);
 static DECLARE_WAIT_QUEUE_HEAD(read_queue);
 static DECLARE_WAIT_QUEUE_HEAD(write_queue);
 
-static int cdev_open(struct inode *inode, struct file *file);
-static int cdev_release(struct inode *inode, struct file *file);
-static ssize_t cdev_read(struct file *file, char __user *user_buf, size_t count, loff_t *offset);
-static ssize_t cdev_write(struct file *file, const char __user *user_buf, size_t count, loff_t *offset);
-
 static struct file_operations fops = {
     .owner = THIS_MODULE,
     .open = cdev_open,
@@ -172,7 +167,7 @@ int cdev_buffer_read(struct tablet_event *event) {
 }
 EXPORT_SYMBOL(cdev_buffer_read);
 
-int tablet_init(void) {
+int tablet_cdev_init(void) {
 
     // Initialise buffer
         buf_head = 0;
@@ -210,7 +205,7 @@ int tablet_init(void) {
     return 0;
 }
 
-void tablet_exit(void) {
+void tablet_cdev_cleanup(void) {
     device_destroy(tablet_class, MKDEV(major_number, 0));
     class_destroy(tablet_class);
     unregister_chrdev(major_number, DEVICE_NAME);

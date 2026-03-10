@@ -23,10 +23,12 @@ char get_button_val(unsigned char code) {
     }
 }
 
-void get_buttons_pressed(unsigned char* data, u32 length, struct button_array* location) {
+void get_buttons_pressed(unsigned char* data, unsigned int length, struct button_array* location) {
     int index = 0;
     char val;
     struct button_array* buttons = location;
+
+    buttons->no_pressed = 0;
 
     val = get_button_val(data[1]);
     if (val != 0 && val != 1) { // 8 causes the first byte to be 05 which is the code for button 1
@@ -45,4 +47,20 @@ void get_buttons_pressed(unsigned char* data, u32 length, struct button_array* l
     }
 }
 
-EXPORT_SYMBOL(get_buttons_pressed);
+struct point get_pen_coordinates(unsigned char* data, unsigned int length) {
+    unsigned short x = 0;
+    unsigned short y = 0;
+
+    x = data[3] << 8;
+    x += data[2];
+
+    y = data[5] << 8;
+    y += data[4];
+
+    struct point point = {
+        x,
+        y
+    };
+
+    return point;
+}

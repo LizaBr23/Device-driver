@@ -4,10 +4,18 @@
 #include "data_parsing.h"
 #include "usb_driver.h"
 
+#include "cdev_controller.h"
+#include "tablet.h"
+
 MODULE_LICENSE("Dual BSD/GPL");
 
 #define VENDOR_ID  0x28bd
 #define PRODUCT_ID 0x0937
+
+void handle_button_input(struct tablet_usb_dev *dev);
+void handle_pen_input(struct tablet_usb_dev *dev);
+
+struct tablet_event *tablet_data;
 
 static const struct usb_device_id tablet_table[] = {
     { USB_DEVICE(VENDOR_ID, PRODUCT_ID) },
@@ -16,43 +24,23 @@ static const struct usb_device_id tablet_table[] = {
 
 MODULE_DEVICE_TABLE(usb, tablet_table);
 
-
-struct tablet_dev {
-    struct usb_device *usb_dev;
-    struct usb_interface *interface;
-    unsigned char *buf;
-    struct urb *urb;
-    __u8 int_ep;
-    size_t buf_size;
-};
-
 static void tablet_irq_callback(struct urb *urb)
 {
-	struct tablet_dev *dev = urb->context;
-	int i;
+	struct tablet_usb_dev *dev = urb->context;
 
 	if (urb->status == 0) {
-		printk(KERN_INFO "tablet data:");
-		if (dev->buf[0] == 6) {
-			struct button_array pressed = {
-				0,
-				{}
-			};
-			get_buttons_pressed(dev->buf, urb->actual_length, &pressed);
-			printk(KERN_ALERT "Button(s) ");
-			if (pressed.no_pressed == 0) {
-				printk(KERN_ALERT "Released \n");
-			} else {
-				for (i = 0; i < pressed.no_pressed; i++) {
-					printk(KERN_ALERT "%d, ", pressed.buttons[i]);
-				}
-				printk(KERN_ALERT "Pressed \n");
-			}
+		if (dev->buf[0] == 6) { // Button Input
+			handle_button_input(dev);
+		} else if (dev->buf[0] == 7) {
+			handle_pen_input(dev);
 		}
-		for (i = 0; i < urb->actual_length; i++)
-			printk(KERN_CONT " %02x", dev->buf[i]);
-
+		// for (i = 0; i < urb->actual_length; i++)
+		// 	printk(KERN_CONT " %02x", dev->buf[i]);
+		//
 		printk(KERN_CONT "\n");
+
+		cdev_buffer_write(dev->tablet_data);
+
 	}
 
 	// Submit urb again to receive more data
@@ -63,7 +51,7 @@ static void tablet_irq_callback(struct urb *urb)
 static int tablet_probe(struct usb_interface *interface, const struct usb_device_id *id)
 // Entry point for usb device
 {
-	struct tablet_dev *dev;
+	struct tablet_usb_dev *dev;
 	struct usb_host_interface *interface_desc;
 	struct usb_endpoint_descriptor *endpoint;
 
@@ -74,6 +62,8 @@ static int tablet_probe(struct usb_interface *interface, const struct usb_device
 		return -ENOMEM;
 
 	dev->usb_dev = usb_get_dev(interface_to_usbdev(interface));
+
+	dev->tablet_data = tablet_data;
 
 	/*
 	 The tablet actually has three interfaces each having an int in endpoint and the third also having an int out endpoint.
@@ -133,7 +123,9 @@ static int tablet_probe(struct usb_interface *interface, const struct usb_device
 
 static void tablet_disconnect(struct usb_interface *interface)
 {
-	struct tablet_dev *dev = usb_get_intfdata(interface);
+	struct tablet_usb_dev *dev = usb_get_intfdata(interface);
+
+	tablet_cdev_cleanup();
 
 	usb_kill_urb(dev->urb);
 	usb_free_urb(dev->urb);
@@ -144,11 +136,78 @@ static void tablet_disconnect(struct usb_interface *interface)
 	printk(KERN_INFO "Tablet Disconnected\n");
 }
 
-static struct usb_driver tablet_driver = {
+void handle_button_input(struct tablet_usb_dev *dev) {
+	struct button_array prev_pressed = dev->tablet_data->tab_buttons;
+	get_buttons_pressed(dev->buf, dev->urb->actual_length, &dev->tablet_data->tab_buttons);
+	printk(KERN_ALERT "Button(s) ");
+	if (dev->tablet_data->tab_buttons.no_pressed == 0) {
+		printk(KERN_ALERT "Released \n");
+	} else {
+		for (int i = 0; i < dev->tablet_data->tab_buttons.no_pressed; i++) {
+			printk(KERN_ALERT "%d, ", dev->tablet_data->tab_buttons.buttons[i]);
+		}
+		printk(KERN_ALERT "Pressed \n");
+	}
+}
+
+void handle_pen_input(struct tablet_usb_dev *dev) {
+	struct point pen_loc = get_pen_coordinates(dev->buf, dev->urb->actual_length);
+	switch (dev->buf[1]) {
+		case 0xa0:
+		case 0xa1:
+			printk("No pen button pressed");
+			break;
+		case 0xa2:
+		case 0xa3:
+			printk("Pen button 1 pressed");
+			break;
+		case 0xa4:
+		case 0xa5:
+			printk("Pen Button 2 Pressed");
+			break;
+		default:
+			break;
+	}
+	printk(KERN_ALERT "Pen at X: %d, Y: %d", pen_loc.x, pen_loc.y);
+	printk(KERN_ALERT "Button(s) ");
+	if (dev->tablet_data->tab_buttons.no_pressed == 0) {
+		printk(KERN_ALERT "Released \n");
+	} else {
+		for (int i = 0; i < dev->tablet_data->tab_buttons.no_pressed; i++) {
+			printk(KERN_ALERT "%d, ", dev->tablet_data->tab_buttons.buttons[i]);
+		}
+		printk(KERN_ALERT "Pressed \n");
+	}
+}
+
+static struct usb_driver tablet_usb_driver = {
 	.name = "custom_tablet_driver",
 	.probe = tablet_probe,
 	.disconnect = tablet_disconnect,
 	.id_table = tablet_table,
 };
 
-module_usb_driver(tablet_driver);
+static int __init device_module_init(void)
+{
+
+	tablet_data = kzalloc(sizeof(struct tablet_event), GFP_KERNEL);
+
+	int result = tablet_cdev_init();
+
+	if (result != 0) {
+		pr_err("CDEV INIT FAILED");
+		return -1;
+	}
+
+	return usb_register(&tablet_usb_driver);
+}
+
+module_init(device_module_init);
+
+static void __exit driver_module_cleanup(void)
+{
+	tablet_cdev_cleanup();
+	usb_deregister(&tablet_usb_driver);
+}
+
+module_exit(driver_module_cleanup);
