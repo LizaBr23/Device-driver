@@ -1,4 +1,5 @@
 #include <linux/init.h>
+#include <linux/input.h>
 #include <linux/module.h>
 #include <linux/usb.h>
 #include "data_parsing.h"
@@ -112,6 +113,24 @@ static int tablet_probe(struct usb_interface *interface, const struct usb_device
 
 	usb_submit_urb(dev->urb, GFP_KERNEL);
 
+	dev->input_dev = input_allocate_device();
+
+	if (!dev->input_dev) {
+		goto error;
+	}
+
+	dev->input_dev->dev.parent = &interface->dev;
+	dev->input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
+
+	// Absolute coordinate positioning for cursor control
+	input_set_abs_params(dev->input_dev, ABS_X, 0, 32767, 0, 0);
+	input_set_abs_params(dev->input_dev, ABS_Y, 0, 32767, 0, 0);
+	input_set_abs_params(dev->input_dev, ABS_PRESSURE, 0, 8191, 0, 0);
+
+	if (input_register_device(dev->input_dev)) {
+		goto error;
+	}
+
 	printk(KERN_ALERT "Raw tablet driver bound\n");
 	return 0;
 
@@ -168,7 +187,7 @@ void handle_pen_input(struct tablet_usb_dev *dev) {
 		default:
 			break;
 	}
-	printk(KERN_ALERT "Pen at X: %d, Y: %d", pen_loc.x, pen_loc.y);
+	
 	printk(KERN_ALERT "Button(s) ");
 	if (dev->tablet_data->tab_buttons.no_pressed == 0) {
 		printk(KERN_ALERT "Released \n");
@@ -178,7 +197,16 @@ void handle_pen_input(struct tablet_usb_dev *dev) {
 		}
 		printk(KERN_ALERT "Pressed \n");
 	}
+
+	printk(KERN_ALERT "Pen at X: %d, Y: %d", pen_loc.x, pen_loc.y);
+	// Report pen coordinates to input subsystem
+	// Can be added to own file/function if needed
+	input_report_abs(dev->input_dev, ABS_X, pen_loc.x);
+	input_report_abs(dev->input_dev, ABS_Y, pen_loc.y);
+	input_sync(dev->input_dev);
+	
 }
+    
 
 static struct usb_driver tablet_usb_driver = {
 	.name = "custom_tablet_driver",

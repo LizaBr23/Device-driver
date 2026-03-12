@@ -13,6 +13,7 @@ struct tablet_usb_dev {
     __u8 int_ep;
     size_t buf_size;
     struct tablet_event *tablet_data;
+    struct input_dev *input_dev;
 };
 
 #endif //DEVICEDRIVERPROJECT_USB_DRIVER_H
