@@ -19,4 +19,6 @@ void get_buttons_pressed(unsigned char* data, unsigned int length, struct button
 
 struct point get_pen_coordinates(unsigned char* data, unsigned int length);
 
+short get_pen_pressure(unsigned char* data, unsigned int length);
+
 #endif //DEVICEDRIVERPROJECT_DATA_PARSING_H

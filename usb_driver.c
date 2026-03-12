@@ -152,18 +152,24 @@ void handle_button_input(struct tablet_usb_dev *dev) {
 
 void handle_pen_input(struct tablet_usb_dev *dev) {
 	struct point pen_loc = get_pen_coordinates(dev->buf, dev->urb->actual_length);
+	dev->tablet_data->x = pen_loc.x;
+	dev->tablet_data->y = pen_loc.y;
+	dev->tablet_data->pressure = get_pen_pressure(dev->buf, dev->urb->actual_length);
 	switch (dev->buf[1]) {
 		case 0xa0:
 		case 0xa1:
 			printk("No pen button pressed");
+			dev->tablet_data->pen_button = 0;
 			break;
 		case 0xa2:
 		case 0xa3:
 			printk("Pen button 1 pressed");
+			dev->tablet_data->pen_button = 1;
 			break;
 		case 0xa4:
 		case 0xa5:
 			printk("Pen Button 2 Pressed");
+			dev->tablet_data->pen_button = 2;
 			break;
 		default:
 			break;

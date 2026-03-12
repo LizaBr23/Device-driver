@@ -64,3 +64,12 @@ struct point get_pen_coordinates(unsigned char* data, unsigned int length) {
 
     return point;
 }
+
+short get_pen_pressure(unsigned char* data, unsigned int length) {
+    unsigned short pressure = 0;
+
+    pressure = data[7] << 8;
+    pressure += data[6];
+
+    return pressure;
+}
