@@ -25,7 +25,6 @@ MODULE_DESCRIPTION("Drawing Tablet Driver");
 static int major_number;
 static struct class *tablet_class;
 static struct device *tablet_device;
-static struct cdev tablet_cdev;
 
 // tracks how many processes have the device open
 static int open_count = 0;
@@ -46,6 +45,16 @@ static DEFINE_MUTEX(tablet_mutex);
 // Initialise wait queue - processes sleep here when buffer is empty
 static DECLARE_WAIT_QUEUE_HEAD(read_queue);
 static DECLARE_WAIT_QUEUE_HEAD(write_queue);
+
+// Virtual keyboard input device - used to inject keypresses into the OS
+static struct input_dev *tablet_input_dev;
+
+// Button binding table - buttons are numbered 1-10, slot 0 unused
+#define MAX_BUTTONS 11
+static struct button_binding button_bindings[MAX_BUTTONS];
+static DEFINE_MUTEX(bindings_mutex);
+
+static void fire_binding(struct button_binding *b);
 
 static int tablet_open(struct inode *inode, struct file *file);
 static int tablet_release(struct inode *inode, struct file *file);
@@ -202,14 +211,6 @@ int tablet_buffer_read(struct tablet_event *event) {
 }
 EXPORT_SYMBOL(tablet_buffer_read);
 
-// Virtual keyboard input device - used to inject keypresses into the OS
-static struct input_dev *tablet_input_dev;
-
-// Button binding table - buttons are numbered 1-10, slot 0 unused
-#define MAX_BUTTONS 11
-static struct button_binding button_bindings[MAX_BUTTONS];
-static DEFINE_MUTEX(bindings_mutex);
-
 // Fires the key combination stored in a binding (e.g. Ctrl+Z)
 // Press modifiers → press key → release key → release modifiers
 static void fire_binding(struct button_binding *b) {
@@ -245,8 +246,28 @@ static void fire_binding(struct button_binding *b) {
 
 static long tablet_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     struct button_binding binding;
+    struct tablet_event event;
 
     switch (cmd) {
+
+    case TABLET_CLR_BUFFER:
+        mutex_lock(&tablet_mutex);
+        buf_head = 0;
+        buf_tail = 0;
+        buf_count = 0;
+        mutex_unlock(&tablet_mutex);
+        printk(KERN_INFO "tablet: buffer cleared\n");
+        return 0;
+
+    // Inject a button event as if it came from hardware.
+    // Used for testing button bindings without a physical tablet.
+    case TABLET_INJECT_EVENT:
+        if (copy_from_user(&event, (void __user *)arg, sizeof(event)))
+            return -EFAULT;
+        if (event.button < 0 || event.button > 10)
+            return -EINVAL;
+        printk(KERN_INFO "tablet: injecting button %d\n", event.button);
+        return tablet_buffer_write(&event);
 
     case TABLET_SET_BINDING:
         if (copy_from_user(&binding, (void __user *)arg, sizeof(binding)))

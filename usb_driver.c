@@ -3,6 +3,7 @@
 #include <linux/usb.h>
 #include "data_parsing.h"
 #include "usb_driver.h"
+#include "cdev_controller.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
 
@@ -32,28 +33,26 @@ static void tablet_irq_callback(struct urb *urb)
 	int i;
 
 	if (urb->status == 0) {
-		printk(KERN_INFO "tablet data:");
 		if (dev->buf[0] == 6) {
+			// Packet type 0x06 = button data
 			char buttons[7];
-			struct button_array pressed = {
-				0,
-				buttons
-			};
+			struct button_array pressed = { 0, buttons };
+			struct tablet_event ev = {0};
 			get_buttons_pressed(dev->buf, urb->actual_length, &pressed);
-			printk(KERN_ALERT "Button(s) ");
+
 			if (pressed.no_pressed == 0) {
-				printk(KERN_ALERT "Released \n");
+				// All buttons released — send a no-button event
+				printk(KERN_INFO "tablet: buttons released\n");
+				tablet_buffer_write(&ev);
 			} else {
+				// Send one event per pressed button
 				for (i = 0; i < pressed.no_pressed; i++) {
-					printk(KERN_ALERT "%d, ", pressed.buttons[i]);
+					ev.button = pressed.buttons[i];
+					printk(KERN_INFO "tablet: button %d pressed\n", ev.button);
+					tablet_buffer_write(&ev);
 				}
-				printk(KERN_ALERT "Pressed \n");
 			}
 		}
-		for (i = 0; i < urb->actual_length; i++)
-			printk(KERN_CONT " %02x", dev->buf[i]);
-
-		printk(KERN_CONT "\n");
 	}
 
 	// Submit urb again to receive more data
@@ -152,4 +151,23 @@ static struct usb_driver tablet_driver = {
 	.id_table = tablet_table,
 };
 
-module_usb_driver(tablet_driver);
+// Replace the module_usb_driver convenience macro with explicit init/exit so we
+// can call tablet_init() at load time. This creates /dev/tablet immediately,
+// even without the physical tablet plugged in (needed for inject-based testing).
+
+static int __init tablet_driver_init(void)
+{
+	int ret = tablet_init();
+	if (ret)
+		return ret;
+	return usb_register(&tablet_driver);
+}
+
+static void __exit tablet_driver_exit(void)
+{
+	usb_deregister(&tablet_driver);
+	tablet_exit();
+}
+
+module_init(tablet_driver_init);
+module_exit(tablet_driver_exit);

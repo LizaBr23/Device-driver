@@ -27,6 +27,8 @@ struct button_binding {
 #define TABLET_GET_BINDING  _IOR(TABLET_MAGIC, 4, struct button_binding)
 // user(GUI) tells driver to wipe all bindings
 #define TABLET_CLR_BINDINGS _IO(TABLET_MAGIC,  5)
+// inject a button event directly (for testing without hardware)
+#define TABLET_INJECT_EVENT _IOW(TABLET_MAGIC, 6, struct tablet_event)
 
 // modifier bitmask values
 #define MOD_CTRL  1
