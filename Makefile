@@ -15,21 +15,25 @@ ifeq ($(KERNELRELEASE),)
     # The current directory is passed to sub-makes as argument
     PWD := $(shell pwd)
 
-all: modules
+all: modules test
 
 modules:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+
+# Build the userspace test tool (no kernel headers needed)
+test: test_inject.c tablet.h
+	$(CC) -Wall -o test_inject test_inject.c
 
 modules_install:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules_install
 
 clean:
-	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions *.mod modules.order *.symvers .module-common.o *.o.d
+	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions *.mod modules.order *.symvers .module-common.o *.o.d test_inject
 
 .PHONY: modules modules_install clean
 
 else
     # called from kernel build system: just declare what our modules are
-    driver_mod-objs := data_parsing.o cdev_controller.o usb_driver.o
+    driver_mod-objs := data_parsing.o cdev_controller.o usb_driver.o proc_file_controller.o input_events.o
     obj-m := driver_mod.o
 endif

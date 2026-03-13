@@ -7,7 +7,7 @@
 
 MODULE_LICENSE("Dual BSD/GPL");
 
-char get_button_val(unsigned char code) {
+static char get_button_val(unsigned char code) {
     switch (code) {
         case 0x05: return 1;
         case 0x08: return 2;
