@@ -15,7 +15,6 @@ MODULE_DESCRIPTION("Drawing Tablet Driver");
 
 #define DEVICE_NAME "Tablet Character Device"
 #define CLASS_NAME "tablet_class"
-#define BUFFER_SIZE 4096
 
 static int major_number;
 static struct class *tablet_class;
@@ -24,8 +23,10 @@ static struct device *tablet_device;
 // tracks how many processes have the device open
 static int open_count = 0;
 
+static long data_instance = 0;
+
 // Circular buffer
-static struct tablet_event event_buffer[BUFFER_SIZE];
+static struct tablet_event event_buffer;
 static int buf_head = 0;
 static int buf_tail = 0;
 static int buf_count = 0;
@@ -45,8 +46,18 @@ static struct file_operations fops = {
     .write = cdev_write,
 };
 
+// A struct that contains unique data for each instance that is reading from the cdev
+
+static struct reader_data {
+    unsigned long instance_no;
+};
+
 static int cdev_open(struct inode *inode, struct file *file) {
     open_count++;
+
+    struct reader_data *reader_data = kzalloc(sizeof(struct reader_data), GFP_KERNEL);
+
+    file->private_data = reader_data;
 
     printk(KERN_INFO "tablet: device opened (open count: %d)\n", open_count);
     return 0;
@@ -60,6 +71,8 @@ static int cdev_release(struct inode *inode, struct file *file) {
         wake_up_interruptible(&read_queue);
         wake_up_interruptible(&write_queue);
     }
+
+    kfree(file->private_data);
     printk(KERN_INFO "tablet: device closed (open count: %d)\n", open_count);
     return 0;
 }
@@ -67,25 +80,23 @@ static int cdev_release(struct inode *inode, struct file *file) {
 static ssize_t cdev_read(struct file *file, char __user *user_buf, size_t count, loff_t *offset) {
     struct tablet_event event;
 
+    struct reader_data *reader_data = file->private_data;
+
+    reader_data->instance_no = data_instance;
+
     // check if userspace gave enough space for one event
     if (count < sizeof(struct tablet_event)) {
         return -EINVAL;
     }
 
     // sleep until buffer has data or device is closed
-    if (wait_event_interruptible(read_queue, buf_count > 0 || open_count == 0)) {
+    if (wait_event_interruptible(read_queue, reader_data->instance_no < data_instance)) {
         return -ERESTARTSYS;
-    }  
-    
-    // check if device was closed while asleep
-    if (buf_count == 0) {
-        return -EIO;
     }
 
     mutex_lock(&tablet_mutex);
-    event = event_buffer[buf_tail];
-    buf_tail = (buf_tail + 1) % BUFFER_SIZE;
-    buf_count--;
+    event = event_buffer;
+    reader_data->instance_no = data_instance;
     mutex_unlock(&tablet_mutex);
 
     wake_up_interruptible(&write_queue);
@@ -96,6 +107,9 @@ static ssize_t cdev_read(struct file *file, char __user *user_buf, size_t count,
 
     return sizeof(event);
 }
+
+//TODO: Fix cdev write. Currently not working
+
 
 static ssize_t cdev_write(struct file *file, const char __user *user_buf, size_t count, loff_t *offset) {
     struct tablet_event event;
@@ -111,7 +125,7 @@ static ssize_t cdev_write(struct file *file, const char __user *user_buf, size_t
         return -EFAULT;
     }
 
-    if (wait_event_interruptible(write_queue, buf_count < BUFFER_SIZE || open_count == 0)) {
+    if (wait_event_interruptible(write_queue, buf_count || open_count == 0)) {
         return -ERESTARTSYS;
     }
 
@@ -120,9 +134,7 @@ static ssize_t cdev_write(struct file *file, const char __user *user_buf, size_t
     }
 
     mutex_lock(&tablet_mutex);
-    event_buffer[buf_head] = event;
-    buf_head = (buf_head + 1) % BUFFER_SIZE;
-    buf_count++;
+    event_buffer = event;
     mutex_unlock(&tablet_mutex);
 
     wake_up_interruptible(&read_queue);
@@ -133,15 +145,10 @@ static ssize_t cdev_write(struct file *file, const char __user *user_buf, size_t
 }
 
 int cdev_buffer_write(struct tablet_event *event) {
-    if (buf_count >= BUFFER_SIZE) {
-        printk(KERN_WARNING "tablet: buffer full, dropping event\n");
-        return -1;
-    }
 
     mutex_lock(&tablet_mutex);
-    event_buffer[buf_head] = *event;
-    buf_head = (buf_head + 1) % BUFFER_SIZE;
-    buf_count++;
+    event_buffer = *event;
+    data_instance++;
     mutex_unlock(&tablet_mutex);
 
     wake_up_interruptible(&read_queue);
@@ -156,9 +163,7 @@ int cdev_buffer_read(struct tablet_event *event) {
     }
 
     mutex_lock(&tablet_mutex);
-    *event = event_buffer[buf_tail];
-    buf_tail = (buf_tail + 1) % BUFFER_SIZE;
-    buf_count--;
+    *event = event_buffer;
     mutex_unlock(&tablet_mutex);
 
     wake_up_interruptible(&write_queue);
