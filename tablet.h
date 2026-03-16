@@ -8,6 +8,7 @@ struct tablet_event {
     int pressure;
     struct button_array tab_buttons;     // button number 1-10, 0 = no button
     int pen_button;
+    int pen_in_range;
 };
 
 struct button_binding {
