@@ -72,9 +72,6 @@ static int tablet_probe(struct usb_interface *interface, const struct usb_device
 
 	dev->interface = interface;
 
-	// Find interrupt IN endpoint
-	printk(KERN_ALERT "%d", interface_desc->desc.bNumEndpoints);
-
 	for (int i = 0; i < interface_desc->desc.bNumEndpoints; i++) {
 		endpoint = &interface_desc->endpoint[i].desc;
 
@@ -107,19 +104,27 @@ static int tablet_probe(struct usb_interface *interface, const struct usb_device
 
 	usb_set_intfdata(interface, dev);
 
-	dev->input_dev = input_allocate_device();
-
-	if (!dev->input_dev) {
-		goto error;
-	}
-
-	dev->input_dev->dev.parent = &interface->dev;
-	dev->input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
-
-	cursor_control_init(dev);
-
-	if (input_register_device(dev->input_dev)) {
-		goto error;
+	switch (interface_desc->desc.bInterfaceNumber) {
+		case PEN_INTERFACE:
+			dev->pen_input_dev = input_allocate_device();
+			dev->pen_input_dev->dev.parent = &interface->dev;
+			cursor_control_init(dev);
+			if (input_register_device(dev->pen_input_dev)) {
+				goto error;
+			}
+			if (!dev->pen_input_dev) {
+				goto error;
+			}
+			break;
+		case BUTTON_INTERFACE:
+			dev->button_input_dev = input_allocate_device();
+			if (button_dev_init(dev->button_input_dev)) {
+				goto error;
+			}
+			if (!dev->button_input_dev) {
+				goto error;
+			}
+			break;
 	}
 
 	usb_submit_urb(dev->urb, GFP_KERNEL);
@@ -137,11 +142,17 @@ static void tablet_disconnect(struct usb_interface *interface)
 {
 	struct tablet_usb_dev *dev = usb_get_intfdata(interface);
 
-	tablet_cdev_cleanup();
 
 	usb_kill_urb(dev->urb);
 	usb_free_urb(dev->urb);
-	input_unregister_device(dev->input_dev);
+	switch (dev->interface->minor) {
+		case PEN_INTERFACE:
+			input_unregister_device(dev->pen_input_dev);
+			break;
+		case BUTTON_INTERFACE:
+			input_unregister_device(dev->button_input_dev);
+			break;
+	}
 	kfree(dev->buf);
 	usb_put_dev(dev->usb_dev);
 	kfree(dev);
@@ -161,6 +172,7 @@ void handle_button_input(struct tablet_usb_dev *dev) {
 		}
 		printk(KERN_ALERT "Pressed \n");
 	}
+	update_button_states(&dev->tablet_data->tab_buttons, dev->button_input_dev);
 }
 
 void handle_pen_input(struct tablet_usb_dev *dev) {

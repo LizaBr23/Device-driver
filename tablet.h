@@ -1,8 +1,9 @@
 #ifndef TABLET_H
 #define TABLET_H
-#include "data_parsing.h"
 
-#define MAX_BUTTONS
+#define MAX_BUTTONS 10
+#define BUTTON_INTERFACE 0
+#define PEN_INTERFACE 1
 
 struct button_array {
     short no_pressed;
