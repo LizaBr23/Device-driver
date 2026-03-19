@@ -1,7 +1,7 @@
 #ifndef TABLET_H
 #define TABLET_H
 
-#define MAX_BUTTONS 10
+#define MAX_BUTTONS 14
 #define BUTTON_INTERFACE 0
 #define PEN_INTERFACE 1
 

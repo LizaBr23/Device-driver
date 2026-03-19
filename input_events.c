@@ -44,8 +44,16 @@ int button_dev_init(struct input_dev *button_input_dev) {
     tablet_settings->tab_bindings[5]  = (struct button_binding){6, KEY_Y,         MOD_CTRL  };  // Ctrl+Y
     tablet_settings->tab_bindings[6]  = (struct button_binding){7, KEY_MINUS,     MOD_CTRL  };  // Ctrl+-
     tablet_settings->tab_bindings[7]  = (struct button_binding){8, KEY_EQUAL,     MOD_CTRL  };  // Ctrl+=  (zoom in)
-    tablet_settings->tab_bindings[8]  = (struct button_binding){9, KEY_CAPSLOCK,  0         };  // Caps Lock
-    tablet_settings->tab_bindings[9]  = (struct button_binding){10, KEY_VOLUMEUP,  0         };  // Volume Up
+    tablet_settings->tab_bindings[8]  = (struct button_binding){9, KEY_CAPSLOCK,  0         };// Caps Lock
+
+    // Quadrants
+    tablet_settings->tab_bindings[9]  = (struct button_binding){10, 0,  0         };  // Quadrant Mode Toggle
+    tablet_settings->tab_bindings[10]  = (struct button_binding){11, KEY_BRIGHTNESSUP,  0         };  // Volume Up
+    tablet_settings->tab_bindings[11]  = (struct button_binding){12, KEY_BRIGHTNESSDOWN,  0         };  // Volume Up
+    tablet_settings->tab_bindings[12]  = (struct button_binding){13, KEY_PLAYPAUSE,  0         };  // Volume Up
+    tablet_settings->tab_bindings[13]  = (struct button_binding){14, KEY_VOLUMEUP,  0         };  // Volume Up
+
+
 
     return 0;
 }
@@ -94,10 +102,9 @@ void update_button_states(struct button_array *buttons_pressed, struct input_dev
         if (btn == 9) {
             quadrant_mode = !quadrant_mode;
             printk(KERN_ALERT "Quadrant mode %s", quadrant_mode ? "enabled" : "disabled");
+        } else {
+            press_binding(&tablet_settings->tab_bindings[buttons_pressed->buttons[i] - 1], button_input_dev);
         }
-
-        press_binding(&tablet_settings->tab_bindings[buttons_pressed->buttons[i] - 1], button_input_dev);
-        pr_alert("button %d",i+1);
     }
 
     input_sync(button_input_dev);
@@ -163,28 +170,28 @@ void quadrant_mode_reporting(struct tablet_usb_dev *dev, struct tablet_event tab
         if (tab_data.x < (TABLET_MAX_X / 2)) {
             if (tab_data.y < (TABLET_MAX_Y / 2)) {
                 printk(KERN_ALERT "Quadrant 1");
-                press_binding(&tablet_settings->tab_bindings[8], dev->button_input_dev);
+                press_binding(&tablet_settings->tab_bindings[10], dev->button_input_dev);
             } else {
                 printk(KERN_ALERT "Quadrant 3");
-                press_binding(&tablet_settings->tab_bindings[0], dev->button_input_dev);
+                press_binding(&tablet_settings->tab_bindings[12], dev->button_input_dev);
             }
         } else {
             if (tab_data.y < (TABLET_MAX_Y / 2)) {
                 printk(KERN_ALERT "Quadrant 2");
-                press_binding(&tablet_settings->tab_bindings[7], dev->button_input_dev);
+                press_binding(&tablet_settings->tab_bindings[11], dev->button_input_dev);
             } else {
                 printk(KERN_ALERT "Quadrant 4");
-                press_binding(&tablet_settings->tab_bindings[6], dev->button_input_dev);
+                press_binding(&tablet_settings->tab_bindings[13], dev->button_input_dev);
             }
         }
         input_sync(dev->button_input_dev);
     }
 
     if (dev->pen_was_touching && !pen_touching) {
-        release_binding(&tablet_settings->tab_bindings[0], dev->button_input_dev);
-        release_binding(&tablet_settings->tab_bindings[8], dev->button_input_dev);
-        release_binding(&tablet_settings->tab_bindings[7], dev->button_input_dev);
-        release_binding(&tablet_settings->tab_bindings[6], dev->button_input_dev);
+        release_binding(&tablet_settings->tab_bindings[12], dev->button_input_dev);
+        release_binding(&tablet_settings->tab_bindings[10], dev->button_input_dev);
+        release_binding(&tablet_settings->tab_bindings[11], dev->button_input_dev);
+        release_binding(&tablet_settings->tab_bindings[13], dev->button_input_dev);
         input_sync(dev->button_input_dev);
     }
 

@@ -56,6 +56,9 @@ void drawTabBindingMenu(int x, int y, struct binding_menu *menu_info, int presse
 
     char* button_text;
     bool custom_input = menu_info->selectedItem == 0 ? true : false;
+    char* binding_type = menu_info->current_binding->button_id < 10 ? "Tablet Button" : "Quadrant";
+    int binding_num = menu_info->current_binding->button_id;
+    binding_num = binding_num > 10 ? binding_num-10 : binding_num;
 
     const char *options = "Custom Input;Volume Up;Volume Down;Play/Pause;Mute;Brightness Up;Brightness Down";
 
@@ -101,11 +104,10 @@ void drawTabBindingMenu(int x, int y, struct binding_menu *menu_info, int presse
     if (str != NULL) {
         TextCopy(menu_info->combo, TextFormat("%s", str));
     }
-    DrawText(TextFormat("Tablet Button %d: %s", menu_info->current_binding->button_id, menu_info->combo), x, y, MAIN_FONTSIZE, BLACK);
+
+    DrawText(TextFormat("%s %d: %s",binding_type, binding_num, menu_info->combo), x, y, MAIN_FONTSIZE, BLACK);
     if (GuiButton((Rectangle) {800, y, 100, 25}, button_text)) {
         if (!custom_input) {
-            printf("ran here");
-            fflush(stdout);
             menu_info->edit_mode = false;
             struct button_binding binding = {
                 menu_info->current_binding->button_id,
@@ -115,8 +117,6 @@ void drawTabBindingMenu(int x, int y, struct binding_menu *menu_info, int presse
             if (set_binding(fd, &binding) != -1) {
                 tablet_settings->tab_bindings[menu_info->current_binding->button_id -1] = binding;
             }
-            printf("ran here");
-            fflush(stdout);
         }
         else if (menu_info->edit_mode) {
             if (set_binding(fd, &menu_info->latched_binding) != -1) {
@@ -130,11 +130,15 @@ void drawTabBindingMenu(int x, int y, struct binding_menu *menu_info, int presse
     }
 }
 
-void draw2 () {
-    int y = 380;
+void drawTabBindings () {
+    int y = 500;
     int key = GetKeyPressed();
     for (int i = MAX_BUTTONS -1; i >= 0; i--) {
-        drawTabBindingMenu(80, y, &binding_menus[i], key);
+        if (i == 9) {
+            DrawText("Tablet Button 10: Toggle Quadrant Mode", 80, y, MAIN_FONTSIZE, BLACK);
+        } else {
+            drawTabBindingMenu(80, y, &binding_menus[i], key);
+        }
         y -= 30;
     }
 }
@@ -207,7 +211,7 @@ int main(void)
     TabBar tb = InitTabBar(20, 55, 35, screenWidth - 50, screenHeight - 100);
     Tab tabs[2];
     tabs[0] = InitTab(drawTabletStats, event_buf, "Tablet Stats");
-    tabs[1] = InitTab(draw2, NULL, "Button Binding");
+    tabs[1] = InitTab(drawTabBindings, NULL, "Button Binding");
 
     for (int i = 0; i < 2; i++) {
         AddTab(&tb, &tabs[i]);
