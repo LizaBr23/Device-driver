@@ -32,7 +32,7 @@ static void tablet_irq_callback(struct urb *urb)
 	if (urb->status == 0) {
 		if (dev->buf[0] == 6) { // Button Input
 			handle_button_input(dev);
-		} else if (dev->buf[0] == 10) { // Wacom: 10 UGEE: 7 Pen Input
+		} else if (dev->buf[0] == 7) { // Wacom: 10 UGEE: 7 Pen Input
 			handle_pen_input(dev);
 		}
 		for (int i = 0; i < urb->actual_length; i++)
@@ -116,8 +116,7 @@ static int tablet_probe(struct usb_interface *interface, const struct usb_device
 			}
 			if (!dev->pen_input_dev) {
 				goto error;
-			}
-			break;
+			}		
 		case BUTTON_INTERFACE:
 			dev->button_input_dev = input_allocate_device();
 			if (button_dev_init(dev->button_input_dev)) {

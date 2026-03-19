@@ -38,7 +38,7 @@ int button_dev_init(struct input_dev *button_input_dev) {
     }
 
     // default button bindings - can be overridden at runtime via ioctl
-    button_bindings[0] = (struct button_binding){ KEY_VOLUMEDOWN,0         };  // Volume Down
+    button_bindings[0] =  (struct button_binding){KEY_VOLUMEDOWN,0         };  // Volume Down
     button_bindings[1]  = (struct button_binding){KEY_Z,         MOD_CTRL  };  // Ctrl+Z
     button_bindings[2]  = (struct button_binding){KEY_C,         MOD_CTRL  };  // Ctrl+C
     button_bindings[3]  = (struct button_binding){KEY_V,         MOD_CTRL  };  // Ctrl+V
@@ -46,8 +46,8 @@ int button_dev_init(struct input_dev *button_input_dev) {
     button_bindings[5]  = (struct button_binding){KEY_Y,         MOD_CTRL  };  // Ctrl+Y
     button_bindings[6]  = (struct button_binding){KEY_MINUS,     MOD_CTRL  };  // Ctrl+-
     button_bindings[7]  = (struct button_binding){KEY_EQUAL,     MOD_CTRL  };  // Ctrl+=  (zoom in)
-    button_bindings[8]  = (struct button_binding){KEY_CAPSLOCK,  0         };  // Caps Lock
-    button_bindings[9]  = (struct button_binding){KEY_VOLUMEUP,  0         };  // Volume Up
+    button_bindings[8]  = (struct button_binding){KEY_VOLUMEUP,  0         };  // Volume Up
+    button_bindings[9]  = (struct button_binding){0,             0         };  // Blank for quadrant mode toggle
 
     return 0;
 }
@@ -88,6 +88,13 @@ void update_button_states(struct button_array *buttons_pressed, struct input_dev
     }
 
     for (int i = 0; i < buttons_pressed->no_pressed; i++) {
+        int btn = buttons_pressed->buttons[i] - 1;
+        
+        if (btn == 9) {
+            quadrant_mode = !quadrant_mode;
+            printk(KERN_ALERT "Quadrant mode %s", quadrant_mode ? "enabled" : "disabled");
+        }
+
         press_binding(&button_bindings[buttons_pressed->buttons[i] - 1], button_input_dev);
         pr_alert("button %d",i+1);
     }
@@ -149,22 +156,36 @@ void cursor_control_init(struct tablet_usb_dev *dev) {
 }
 
 void quadrant_mode_reporting(struct tablet_usb_dev *dev, struct tablet_event tab_data, int pen_in_range) {
-    if (pen_in_range) {
+    int pen_touching = tab_data.pen_touching;
+
+    if (pen_in_range && pen_touching && !dev->pen_was_touching) {
         if (tab_data.x < (TABLET_MAX_X / 2)) {
             if (tab_data.y < (TABLET_MAX_Y / 2)) {
                 printk(KERN_ALERT "Quadrant 1");
+                press_binding(&button_bindings[8], dev->button_input_dev);
             } else {
                 printk(KERN_ALERT "Quadrant 3");
+                press_binding(&button_bindings[0], dev->button_input_dev);
             }
         } else {
             if (tab_data.y < (TABLET_MAX_Y / 2)) {
                 printk(KERN_ALERT "Quadrant 2");
+                press_binding(&button_bindings[7], dev->button_input_dev);
             } else {
                 printk(KERN_ALERT "Quadrant 4");
+                press_binding(&button_bindings[6], dev->button_input_dev);
             }
         }
-
-        input_sync(dev->pen_input_dev);
+        input_sync(dev->button_input_dev);
     }
 
+    if (dev->pen_was_touching && !pen_touching) {
+        release_binding(&button_bindings[0], dev->button_input_dev);
+        release_binding(&button_bindings[8], dev->button_input_dev);
+        release_binding(&button_bindings[7], dev->button_input_dev);
+        release_binding(&button_bindings[6], dev->button_input_dev);
+        input_sync(dev->button_input_dev);
+    }
+
+    dev->pen_was_touching = pen_touching;
 }
