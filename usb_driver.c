@@ -23,6 +23,8 @@ static const struct usb_device_id tablet_table[] = {
 
 MODULE_DEVICE_TABLE(usb, tablet_table);
 
+int quadrant_mode = 0; // 0 = off, 1 = on
+
 static void tablet_irq_callback(struct urb *urb)
 {
 	struct tablet_usb_dev *dev = urb->context;
@@ -30,7 +32,7 @@ static void tablet_irq_callback(struct urb *urb)
 	if (urb->status == 0) {
 		if (dev->buf[0] == 6) { // Button Input
 			handle_button_input(dev);
-		} else if (dev->buf[0] == 7) { // Wacom: 10, Pen Input
+		} else if (dev->buf[0] == 10) { // Wacom: 10 UGEE: 7 Pen Input
 			handle_pen_input(dev);
 		}
 		for (int i = 0; i < urb->actual_length; i++)
@@ -142,7 +144,6 @@ static void tablet_disconnect(struct usb_interface *interface)
 {
 	struct tablet_usb_dev *dev = usb_get_intfdata(interface);
 
-
 	usb_kill_urb(dev->urb);
 	usb_free_urb(dev->urb);
 	switch (dev->interface->minor) {
@@ -178,9 +179,13 @@ void handle_button_input(struct tablet_usb_dev *dev) {
 void handle_pen_input(struct tablet_usb_dev *dev) {
 
 	update_pen_data(dev->buf, dev->urb->actual_length, dev->tablet_data);
-	// Report pen coordinates
-	cursor_control_reporting(dev, *tablet_data, dev->tablet_data->pen_in_range);
-	
+
+	if (!quadrant_mode) {
+		cursor_control_reporting(dev, *dev->tablet_data, dev->tablet_data->pen_in_range);
+	} else {
+		quadrant_mode_reporting(dev, *dev->tablet_data, dev->tablet_data->pen_in_range);
+	}
+
 }
     
 

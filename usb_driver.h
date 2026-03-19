@@ -9,11 +9,11 @@
 #include <linux/input.h>
 #include <linux/types.h>
 
-#define VENDOR_ID  0x28bd // Wacom: 056a
-#define PRODUCT_ID 0x0937 // Wacom: 0376
+#define VENDOR_ID  0x28bd // Wacom: 056a UGEE: 28bd
+#define PRODUCT_ID 0x0937 // Wacom: 0376 UGEE: 0937
 
-#define TABLET_MAX_X      32768 // Wacom: 15200 
-#define TABLET_MAX_Y      32768 // Wacom: 9500
+#define TABLET_MAX_X      32768 // Wacom: 15200 UGEE: 32768
+#define TABLET_MAX_Y      32768 // Wacom: 9500 UGEE: 32768
 #define TABLET_MAX_PRESSURE 8191
 
 struct tablet_usb_dev {

@@ -147,3 +147,24 @@ void cursor_control_init(struct tablet_usb_dev *dev) {
     input_set_drvdata(dev->pen_input_dev, dev);
 
 }
+
+void quadrant_mode_reporting(struct tablet_usb_dev *dev, struct tablet_event tab_data, int pen_in_range) {
+    if (pen_in_range) {
+        if (tab_data.x < (TABLET_MAX_X / 2)) {
+            if (tab_data.y < (TABLET_MAX_Y / 2)) {
+                printk(KERN_ALERT "Quadrant 1");
+            } else {
+                printk(KERN_ALERT "Quadrant 3");
+            }
+        } else {
+            if (tab_data.y < (TABLET_MAX_Y / 2)) {
+                printk(KERN_ALERT "Quadrant 2");
+            } else {
+                printk(KERN_ALERT "Quadrant 4");
+            }
+        }
+
+        input_sync(dev->pen_input_dev);
+    }
+
+}

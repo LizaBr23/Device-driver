@@ -5,6 +5,8 @@
 #define BUTTON_INTERFACE 0
 #define PEN_INTERFACE 1
 
+extern int quadrant_mode;
+
 struct button_array {
     short no_pressed;
     char buttons[7];
