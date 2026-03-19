@@ -16,14 +16,30 @@
 #include "cdev_reader.h"
 #include "../tablet.h"
 
-#define MAIN_FONTSIZE 20
+#define MAIN_FONTSIZE 25
 
 void draw1 (void) {
 
 }
 
+void drawTabBindingMenu(int x, int y, int button_no) {
+    const static char* str = "None";
+    static char combo[64] = "None";
+    int key = GetKeyPressed();
+    if (key != 0)
+    {
+        str = GetKeyCombo(key);
+    }
+
+
+    if (str != NULL) {
+        TextCopy(combo, TextFormat("%s", str));
+    }
+    DrawText(TextFormat("Tablet Button %d: %s", button_no, str), x, y, MAIN_FONTSIZE, BLACK);
+}
+
 void draw2 (void* tab_data) {
-    DrawText(TextFormat("On tab 2"), 200, 200, 30, DARKGRAY);
+    drawTabBindingMenu(100, 100, 1);
 }
 
 void drawTabletStats(void* event_buf) {
@@ -31,14 +47,36 @@ void drawTabletStats(void* event_buf) {
     //TODO: Add rest of tablet stats
 
     struct tablet_event *tab_event = event_buf;
-    DrawText(TextFormat("X Coordinates: %d", tab_event->x), 80, 110, MAIN_FONTSIZE, BLACK);
-    DrawText(TextFormat("Y Coordinates: %d", tab_event->y), 80, 130, MAIN_FONTSIZE, BLACK);
-    DrawText(TextFormat("Pen Pressure: %d", tab_event->pressure), 80, 150, MAIN_FONTSIZE, BLACK);
+
+    Color pen_in_range_colour;
+    static const char* pen_in_range_message;
+
+    if (tab_event->pen_in_range) {
+        pen_in_range_colour = GREEN;
+        pen_in_range_message = "Pen in Range";
+    } else {
+        pen_in_range_colour = RED;
+        pen_in_range_message = "Pen out of Range";
+    }
+
+    char tab_buttons_pressed[30] = {0};
+
+    if (tab_event->tab_buttons.no_pressed == 0) {
+        strcat(tab_buttons_pressed, "None");
+    } else {
+        for (int i = 0; i < tab_event->tab_buttons.no_pressed; i++) {
+            strcat(tab_buttons_pressed, TextFormat("%d, ", tab_event->tab_buttons.buttons[i]));
+        }
+    }
+
+    DrawText(pen_in_range_message, 75, 110, MAIN_FONTSIZE, pen_in_range_colour);
+
+    DrawText(TextFormat("X Coordinates: %d \nY Coordinates: %d \nPen Pressure: %d \nPen Button Pressed: %d \nTablet Buttons Pressed: %s",
+        tab_event->x, tab_event->y, tab_event->pressure, tab_event->pen_button, tab_buttons_pressed),
+        80, 140, MAIN_FONTSIZE, BLACK);
+
 }
 
-void drawTabBindingMenu(int x, int y, int button_no) {
-    DrawText(TextFormat("Tablet Button %d:", button_no), x, y, MAIN_FONTSIZE, BLACK);
-}
 
 int main(void)
 {
@@ -66,7 +104,6 @@ int main(void)
 
 
     Rectangle button = { 300, 200, 200, 50 };
-    char combo[64] = "None";
 
     bool dropdownOpen = false;
     int selectedItem = 0;
@@ -82,18 +119,8 @@ int main(void)
 
         // drawTabBindingMenu(80, 120, 1);
 
-        const char* str = NULL;
-
-        int key = GetKeyPressed();
-        if (key != 0)
-        {
-            str = GetKeyCombo(key);
-        }
 
 
-        if (str != NULL) {
-            TextCopy(combo, TextFormat("%s", str));
-        }
 
         // if (GuiDropdownBox((Rectangle){ 250, 160, 300, 40 }, options, &selectedItem, dropdownOpen))
         //     dropdownOpen = !dropdownOpen;

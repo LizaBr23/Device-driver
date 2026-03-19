@@ -119,35 +119,29 @@ const char *GetKeyCombo(int key)
 
     if (key == 0) return NULL;
 
+    bool ctrl  = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+    bool shift = IsKeyDown(KEY_LEFT_SHIFT)   || IsKeyDown(KEY_RIGHT_SHIFT);
+    bool alt   = IsKeyDown(KEY_LEFT_ALT)     || IsKeyDown(KEY_RIGHT_ALT);
+
+    // Build modifier prefix
+    static char combo[64] = {0};
+    combo[0] = '\0';
+
+
+    if (ctrl)  strcat(combo, "CTRL+");
+    if (shift) strcat(combo, "SHIFT+");
+    if (alt)   strcat(combo, "ALT+");
 
     // Don't report if the key itself is a modifier
     if (key == KEY_LEFT_SHIFT   || key == KEY_RIGHT_SHIFT   ||
         key == KEY_LEFT_CONTROL || key == KEY_RIGHT_CONTROL ||
         key == KEY_LEFT_ALT     || key == KEY_RIGHT_ALT     ||
         key == KEY_LEFT_SUPER   || key == KEY_RIGHT_SUPER)
-        return NULL;
-
-
-    bool ctrl  = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
-    bool shift = IsKeyDown(KEY_LEFT_SHIFT)   || IsKeyDown(KEY_RIGHT_SHIFT);
-    bool alt   = IsKeyDown(KEY_LEFT_ALT)     || IsKeyDown(KEY_RIGHT_ALT);
+        return combo;
 
     const char *keyName = RayKeyToString(key, shift);
 
-    // Build modifier prefix
-    static char combo[64] = {0};
-    combo[0] = '\0';
-
-    printf("\n got this far \n");
-
-    if (ctrl)  strcat(combo, "CTRL+");
-    if (shift) strcat(combo, "SHIFT+");
-    if (alt)   strcat(combo, "ALT+");
-
     strcat(combo, keyName);
-
-    printf("ran \n \n ");
-
 
     return combo;
 }

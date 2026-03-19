@@ -195,6 +195,7 @@ static int __init device_module_init(void)
 {
 
 	tablet_data = kzalloc(sizeof(struct tablet_event), GFP_KERNEL);
+	pr_err("Init x: %d", tablet_data->x);
 
 	int result = tablet_cdev_init();
 

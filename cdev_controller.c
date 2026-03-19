@@ -60,6 +60,8 @@ static int cdev_open(struct inode *inode, struct file *file) {
     file->private_data = reader_data;
 
     printk(KERN_INFO "tablet: device opened (open count: %d)\n", open_count);
+
+    wake_up_interruptible(&read_queue);
     return 0;
 
 }
@@ -150,6 +152,8 @@ int cdev_buffer_write(struct tablet_event *event) {
     event_buffer = *event;
     data_instance++;
     mutex_unlock(&tablet_mutex);
+
+    pr_err("X: %d", event->x);
 
     wake_up_interruptible(&read_queue);
 
