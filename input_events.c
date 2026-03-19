@@ -13,7 +13,7 @@
 
 static struct button_binding button_bindings[MAX_BUTTONS];
 
-int button_dev_init(struct input_dev *button_input_dev) {
+int button_dev_init(struct input_dev *button_input_dev, struct tablet_settings *tablet_settings) {
 
     // Create virtual keyboard so we can inject keypresses into the OS
     if (!button_input_dev) {

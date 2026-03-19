@@ -5,7 +5,7 @@
 #ifndef DEVICEDRIVERPROJECT_CDEV_CONTROLLER_H
 #define DEVICEDRIVERPROJECT_CDEV_CONTROLLER_H
 
-int tablet_cdev_init(void);
+int tablet_cdev_init(struct tablet_settings *tablet_settings);
 void tablet_cdev_cleanup(void);
 static int cdev_open(struct inode *inode, struct file *file);
 static int cdev_release(struct inode *inode, struct file *file);

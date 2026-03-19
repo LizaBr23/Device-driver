@@ -12,6 +12,7 @@
 #include "key_converter.h"
 #include <stdbool.h>
 #include <pthread.h>
+#include <sys/ioctl.h>
 
 #include "cdev_reader.h"
 #include "../tablet.h"
@@ -41,6 +42,8 @@ void drawTabBindingMenu(int x, int y, int button_no) {
 void draw2 (void* tab_data) {
     drawTabBindingMenu(100, 100, 1);
 }
+
+
 
 void drawTabletStats(void* event_buf) {
 

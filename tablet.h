@@ -20,6 +20,7 @@ struct tablet_event {
 };
 
 struct button_binding {
+    int button_id;
     int keycode;    // Linux keycode e.g. KEY_Z
     int modifiers;  // bitmask: 1=Ctrl, 2=Alt, 4=Shift
 };

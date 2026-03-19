@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 
 int init_reader() {
     int fd = open("/dev/Tablet Character Device", O_RDONLY);
@@ -18,8 +19,18 @@ void get_tablet_event(int fd, struct tablet_event* event_buf) {
     read(fd, event_buf, sizeof(struct tablet_event));
 }
 
+void do_ioctl(int fd) {
+    struct button_binding binding = {
+        0,
+        4,
+        4
+    };
+    ioctl(fd, TABLET_SET_BINDING, &binding);
+}
+
 void* cdev_read(void* event_buf) {
     int fd = init_reader();
+    do_ioctl(fd);
     while (1) {
         get_tablet_event(fd, event_buf);
     }

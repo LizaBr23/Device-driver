@@ -24,6 +24,7 @@ struct tablet_usb_dev {
     __u8 int_ep;
     size_t buf_size;
     struct tablet_event *tablet_data;
+    struct tablet_settings *tablet_settings;
     struct input_dev *pen_input_dev;
     char phys[64];
     struct input_dev *button_input_dev;

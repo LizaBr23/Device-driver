@@ -15,6 +15,7 @@ void handle_button_input(struct tablet_usb_dev *dev);
 void handle_pen_input(struct tablet_usb_dev *dev);
 
 struct tablet_event *tablet_data;
+struct tablet_settings *tablet_settings;
 
 static const struct usb_device_id tablet_table[] = {
     { USB_DEVICE(VENDOR_ID, PRODUCT_ID) },
@@ -61,6 +62,7 @@ static int tablet_probe(struct usb_interface *interface, const struct usb_device
 	dev->usb_dev = usb_get_dev(interface_to_usbdev(interface));
 
 	dev->tablet_data = tablet_data;
+	dev->tablet_settings = tablet_settings;
 
 	/*
 	 The tablet actually has three interfaces each having an int in endpoint and the third also having an int out endpoint.
@@ -118,7 +120,7 @@ static int tablet_probe(struct usb_interface *interface, const struct usb_device
 			break;
 		case BUTTON_INTERFACE:
 			dev->button_input_dev = input_allocate_device();
-			if (button_dev_init(dev->button_input_dev)) {
+			if (button_dev_init(dev->button_input_dev, dev->tablet_settings)) {
 				goto error;
 			}
 			if (!dev->button_input_dev) {
@@ -196,8 +198,10 @@ static int __init device_module_init(void)
 
 	tablet_data = kzalloc(sizeof(struct tablet_event), GFP_KERNEL);
 	pr_err("Init x: %d", tablet_data->x);
+	tablet_settings = kzalloc(sizeof(struct tablet_settings), GFP_KERNEL);
 
-	int result = tablet_cdev_init();
+
+	int result = tablet_cdev_init(tablet_settings);
 
 	if (result != 0) {
 		pr_err("CDEV INIT FAILED");

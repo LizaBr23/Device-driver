@@ -28,6 +28,7 @@ static long data_instance = 0;
 
 // Circular buffer
 static struct tablet_event event_buffer;
+static struct tablet_settings *settings_buffer;
 static int buf_head = 0;
 static int buf_tail = 0;
 static int buf_count = 0;
@@ -190,7 +191,9 @@ int cdev_buffer_read(struct tablet_event *event) {
 }
 EXPORT_SYMBOL(cdev_buffer_read);
 
-int tablet_cdev_init(void) {
+int tablet_cdev_init(struct tablet_settings *tablet_settings) {
+
+    settings_buffer = tablet_settings;
 
     // Initialise buffer
         buf_head = 0;
@@ -234,5 +237,30 @@ void tablet_cdev_cleanup(void) {
     unregister_chrdev(major_number, DEVICE_NAME);
     printk(KERN_ALERT "tablet: /dev/tablet removed\n");
 }
+
+long tablet_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
+    struct button_binding binding;
+
+    switch (cmd) {
+
+        case TABLET_SET_BINDING:
+            if (copy_from_user(&binding, (void __user *)arg, sizeof(binding)))
+                return -EFAULT;
+            settings_buffer->tab_bindings[binding.button_id] = binding;
+            return 0;
+
+        case TABLET_GET_SETTING:
+
+            return 0;
+
+        case TABLET_CLR_BINDINGS:
+
+            return 0;
+
+        default:
+            return -ENOTTY;
+    }
+}
+
 
 
