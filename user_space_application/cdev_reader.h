@@ -16,5 +16,6 @@ struct reader_args {
 void* cdev_read(void* event_buf);
 int init_reader();
 void get_settings(int fd, struct tablet_settings *tablet_settings);
+int set_binding(int fd, struct button_binding *binding);
 
 #endif //DEVICEDRIVERAPP_CDEV_READER_H

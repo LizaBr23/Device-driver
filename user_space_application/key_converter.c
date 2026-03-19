@@ -89,6 +89,12 @@ const char *RayKeyToString(int key, bool shift)
         case KEY_PRINT_SCREEN:  return "PRINT_SCREEN";
         case KEY_PAUSE:         return "PAUSE";
         case KEY_MENU:          return "MENU";
+        case 400: return "Volume Up";
+        case 401: return "Volume Down";
+        case 402: return "Play/Pause";
+        case 405: return "Mute";
+        case 406: return "Brightness Up";
+        case 407: return "Brightness Down";
         default:                return "UNKNOWN";
     }
 }
@@ -405,6 +411,14 @@ int LinuxKeyToRaylib(int linuxKey)
         case 99:  return 283; // PRINT_SCREEN
         case 119: return 284; // PAUSE
         case 127: return 348; // MENU
+
+        // Not in raylib
+        case 115: return 400; //Vol up
+        case 114: return 401; // vol down
+        case 164: return 402; //Play/Pause
+        case 113: return 405; //Mute
+        case 224: return 406; //Brightness Up
+        case 225: return 407; // Brightness Down
 
         default:  return -1;  // unknown
     }

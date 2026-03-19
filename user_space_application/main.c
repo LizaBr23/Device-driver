@@ -19,40 +19,123 @@
 
 #define MAIN_FONTSIZE 25
 
+struct binding_menu {
+    struct button_binding *current_binding;
+    bool edit_mode;
+    struct button_binding latched_binding;
+    char combo[64];
+    bool dropdownOpen;
+    int selectedItem;
+};
+
 struct tablet_settings *tablet_settings;
+struct binding_menu binding_menus[MAX_BUTTONS];
+int fd;
+const int linux_keycodes[] = {-1, 115, 114, 164, 113, 224, 225};
 
 void draw1 (void) {
 
 }
 
-void drawTabBindingMenu(int x, int y, struct button_binding binding) {
+void initBindingMenu() {
+    for (int i = 0; i < MAX_BUTTONS; i++) {
+        struct binding_menu binding_menu = {
+            .current_binding = &tablet_settings->tab_bindings[i],
+            .edit_mode = false,
+            .latched_binding = tablet_settings->tab_bindings[i],
+            .combo = "None",
+            .dropdownOpen = false,
+            .selectedItem = 0
+        };
 
+        binding_menus[i] = binding_menu;
+    }
+}
 
+void drawTabBindingMenu(int x, int y, struct binding_menu *menu_info, int pressed_key) {
 
-    const static char* str = "None";
-    static char combo[64] = "None";
-    int key = LinuxKeyToRaylib(binding.keycode);
-    if (key != 0)
-    {
-        str = GetKeyCombo(key, binding.modifiers);
+    char* button_text;
+    bool custom_input = menu_info->selectedItem == 0 ? true : false;
+
+    const char *options = "Custom Input;Volume Up;Volume Down;Play/Pause;Mute;Brightness Up;Brightness Down";
+
+    static bool dropDownOpen = false;
+
+    if (!custom_input) {
+        button_text = "Update";
+    } else if (menu_info->edit_mode) {
+        button_text = "Save";
+    } else {
+        button_text = "Edit";
     }
 
+    const char* str = NULL;
+    int key;
+
+    if (menu_info->edit_mode) {
+        key = pressed_key;
+        int modifiers = getModifiers();
+        if (key != 0)
+        {
+            struct button_binding binding = {
+                .modifiers = modifiers,
+                .button_id = menu_info->current_binding->button_id,
+                .keycode = RaylibToLinuxKey(key)
+            };
+            str = GetKeyCombo(key, modifiers);
+            menu_info->latched_binding = binding;
+        }
+    } else {
+        key = LinuxKeyToRaylib(menu_info->current_binding->keycode);
+        if (key != 0)
+            str = GetKeyCombo(key, menu_info->current_binding->modifiers);
+    }
+
+    bool dropBoxVal = GuiDropdownBox((Rectangle){ 500, y, 300, 25 }, options, &menu_info->selectedItem, menu_info->dropdownOpen);
+
+    if (dropBoxVal && (!dropDownOpen || menu_info->dropdownOpen)) {
+        menu_info->dropdownOpen = !menu_info->dropdownOpen;
+        dropDownOpen = menu_info->dropdownOpen;
+    }
 
     if (str != NULL) {
-        TextCopy(combo, TextFormat("%s", str));
+        TextCopy(menu_info->combo, TextFormat("%s", str));
     }
-    DrawText(TextFormat("Tablet Button %d: %s", binding.button_id, str), x, y, MAIN_FONTSIZE, BLACK);
-    if (GuiButton((Rectangle) {500, y, 100, 25}, "Click")) {
-        printf("CLicked me! \n");
-        fflush(stdout); 
+    DrawText(TextFormat("Tablet Button %d: %s", menu_info->current_binding->button_id, menu_info->combo), x, y, MAIN_FONTSIZE, BLACK);
+    if (GuiButton((Rectangle) {800, y, 100, 25}, button_text)) {
+        if (!custom_input) {
+            printf("ran here");
+            fflush(stdout);
+            menu_info->edit_mode = false;
+            struct button_binding binding = {
+                menu_info->current_binding->button_id,
+                linux_keycodes[menu_info->selectedItem],
+                0
+            };
+            if (set_binding(fd, &binding) != -1) {
+                tablet_settings->tab_bindings[menu_info->current_binding->button_id -1] = binding;
+            }
+            printf("ran here");
+            fflush(stdout);
+        }
+        else if (menu_info->edit_mode) {
+            if (set_binding(fd, &menu_info->latched_binding) != -1) {
+                tablet_settings->tab_bindings[menu_info->current_binding->button_id -1] = menu_info->latched_binding;
+            }
+            menu_info->edit_mode = !menu_info->edit_mode;
+        } else {
+            menu_info->edit_mode = !menu_info->edit_mode;
+        }
+
     }
 }
 
 void draw2 () {
-    int y = 110;
-    for (int i = 0; i < MAX_BUTTONS; i++) {
-        drawTabBindingMenu(80, y, tablet_settings->tab_bindings[i]);
-        y += 30;
+    int y = 380;
+    int key = GetKeyPressed();
+    for (int i = MAX_BUTTONS -1; i >= 0; i--) {
+        drawTabBindingMenu(80, y, &binding_menus[i], key);
+        y -= 30;
     }
 }
 
@@ -102,7 +185,7 @@ int main(void)
     struct tablet_event *event_buf = malloc(sizeof(struct tablet_event));
     tablet_settings = malloc(sizeof(struct tablet_settings));
 
-    int fd = init_reader();
+    fd = init_reader();
 
     struct reader_args reader_args = {
         event_buf,
@@ -111,6 +194,8 @@ int main(void)
     };
 
     get_settings(fd, tablet_settings);
+
+    initBindingMenu();
 
     pthread_t cdev_reader;
     pthread_create(&cdev_reader, NULL, cdev_read, &reader_args);
@@ -134,8 +219,6 @@ int main(void)
 
     bool dropdownOpen = false;
     int selectedItem = 0;
-    const char *options = "Option 1;Option 2;Option 3;Option 4";
-
     GuiSetStyle(DEFAULT, TEXT_SIZE, 20);
 
 
@@ -148,8 +231,7 @@ int main(void)
 
 
 
-        // if (GuiDropdownBox((Rectangle){ 250, 160, 300, 40 }, options, &selectedItem, dropdownOpen))
-        //     dropdownOpen = !dropdownOpen;
+
 
 
         BeginDrawing();

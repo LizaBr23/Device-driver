@@ -161,7 +161,6 @@ static void tablet_disconnect(struct usb_interface *interface)
 }
 
 void handle_button_input(struct tablet_usb_dev *dev) {
-	struct button_array prev_pressed = dev->tablet_data->tab_buttons;
 	get_buttons_pressed(dev->buf, dev->urb->actual_length, &dev->tablet_data->tab_buttons);
 	printk(KERN_ALERT "Button(s) ");
 	if (dev->tablet_data->tab_buttons.no_pressed == 0) {

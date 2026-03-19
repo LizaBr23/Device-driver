@@ -20,20 +20,12 @@ void get_tablet_event(int fd, struct tablet_event* event_buf) {
     read(fd, event_buf, sizeof(struct tablet_event));
 }
 
-void do_ioctl(int fd) {
-    struct button_binding binding = {
-        1,
-        115,
-        0
-    };
-    ioctl(fd, TABLET_SET_BINDING, &binding);
-    printf("\n ioctl done \n");
+int set_binding(int fd, struct button_binding *binding) {
+    return ioctl(fd, TABLET_SET_BINDING, binding);
 }
 
 void get_settings(int fd, struct tablet_settings *tablet_settings) {
     ioctl(fd, TABLET_GET_SETTING, tablet_settings);
-    printf("ran");
-    printf("\n Keycode: %d \n", tablet_settings->tab_bindings[0].keycode);
 }
 
 void* cdev_read(void* reader_args) {

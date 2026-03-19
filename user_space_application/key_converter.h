@@ -9,5 +9,7 @@
 const char *RayKeyToString(int key, bool shift);
 const char *GetKeyCombo(int key, int modifiers);
 int LinuxKeyToRaylib(int linuxKey);
+int getModifiers();
+int RaylibToLinuxKey(int raylibKey);
 
 #endif //DEVICEDRIVERAPP_KEY_CONVERTER_H

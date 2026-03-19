@@ -90,8 +90,8 @@ void update_button_states(struct button_array *buttons_pressed, struct input_dev
     }
 
     for (int i = 0; i < buttons_pressed->no_pressed; i++) {
-        press_binding(&tablet_settings->tab_bindings[i], button_input_dev);
-        pr_alert("button %d",i+1);
+        press_binding(&tablet_settings->tab_bindings[buttons_pressed->buttons[i] -1], button_input_dev);
+        pr_alert("button %d \n",i+1);
     }
 
     input_sync(button_input_dev);
