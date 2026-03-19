@@ -13,6 +13,10 @@
 
 int init_reader() {
     int fd = open("/dev/Tablet Character Device", O_RDONLY);
+    if (fd < 0) {
+        perror("Failed to open device");
+        return -1;
+    }
     return fd;
 }
 
@@ -25,7 +29,9 @@ int set_binding(int fd, struct button_binding *binding) {
 }
 
 void get_settings(int fd, struct tablet_settings *tablet_settings) {
-    ioctl(fd, TABLET_GET_SETTING, tablet_settings);
+    if (fd < 0) return;
+    int ret = ioctl(fd, TABLET_GET_SETTING, tablet_settings);
+    if (ret < 0) perror("ioctl failed");
 }
 
 void* cdev_read(void* reader_args) {
