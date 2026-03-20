@@ -54,6 +54,8 @@ static struct file_operations fops = {
 int total_reads = 0;
 int total_writes = 0;
 
+struct mutex tablet_settings_mutex;
+
 
 // A struct that contains unique data for each instance that is reading from the cdev
 
@@ -207,6 +209,8 @@ int tablet_cdev_init(void) {
         return -ENOMEM;
     }
 
+    mutex_init(&tablet_settings_mutex);
+
     return 0;
 }
 
@@ -218,6 +222,8 @@ void tablet_cdev_cleanup(void) {
     printk(KERN_ALERT "tablet: /dev/tablet removed\n");
 }
 
+
+
 long tablet_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     switch (cmd) {
 
@@ -225,19 +231,18 @@ long tablet_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
             struct button_binding binding;
             if (copy_from_user(&binding, (void __user *)arg, sizeof(binding)))
                 return -EFAULT;
+            mutex_lock(&tablet_settings_mutex);
             tablet_settings->tab_bindings[binding.button_id -1] = binding;
+            mutex_unlock(&tablet_settings_mutex);
             return 0;
         case TABLET_GET_SETTING:
+            mutex_lock(&tablet_settings_mutex);
             if (copy_to_user((void __user*) arg, tablet_settings, sizeof(struct tablet_settings))) {
                 pr_alert("\n Error \n");
                 return -EFAULT;
             }
+            mutex_unlock(&tablet_settings_mutex);
             return 0;
-
-        case TABLET_CLR_BINDINGS:
-
-            return 0;
-
         default:
             return -ENOTTY;
     }
